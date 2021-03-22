@@ -5,3 +5,8 @@
 /etc/**
 /Scripts/**
 
+bin/
+data/
+src/models/
+src/scripts/1508.06576.pdf
+src/graph/
