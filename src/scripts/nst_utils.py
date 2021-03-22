@@ -2,12 +2,13 @@
 
 import os
 import sys
+import cv2
 import scipy.io
 import scipy.misc
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import imshow
 from PIL import Image
-from nst_utils import *
+# from src.scripts.nst_utils import *
 
 import numpy as np
 import tensorflow as tf
@@ -23,7 +24,7 @@ class CONFIG:
     CONTENT_IMAGE = 'images/content300.jpg' # Content image to use.
     OUTPUT_DIR = 'output/'
     
-def load_vgg_model(path):
+def load_vgg_model(path, dims):
     """
     Returns a model for the purpose of 'painting' the picture.
     Takes only the convolution layer weights and wrap using the TensorFlow
@@ -79,6 +80,11 @@ def load_vgg_model(path):
     vgg = scipy.io.loadmat(path)
 
     vgg_layers = vgg['layers']
+
+    def _dimAssign(dims):
+        CONFIG.IMAGE_WIDTH = dims[1]
+        CONFIG.IMAGE_HEIGHT = dims[0]
+        CONFIG.COLOR_CHANNELS = dims[2]
     
     def _weights(layer, expected_layer_name):
         """
@@ -123,6 +129,8 @@ def load_vgg_model(path):
         """
         return tf.nn.avg_pool(prev_layer, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 
+    _dimAssign(dims)
+
     # Constructs the graph model.
     graph = {}
     graph['input']   = tf.Variable(np.zeros((1, CONFIG.IMAGE_HEIGHT, CONFIG.IMAGE_WIDTH, CONFIG.COLOR_CHANNELS)), dtype = 'float32')
@@ -156,7 +164,7 @@ def generate_noise_image(content_image, noise_ratio = CONFIG.NOISE_RATIO):
     """
     
     # Generate a random noise_image
-    noise_image = np.random.uniform(-20, 20, (1, CONFIG.IMAGE_HEIGHT, CONFIG.IMAGE_WIDTH, CONFIG.COLOR_CHANNELS)).astype('float32')
+    noise_image = np.random.uniform(-150, 150, (1, CONFIG.IMAGE_HEIGHT, CONFIG.IMAGE_WIDTH, CONFIG.COLOR_CHANNELS)).astype('float32')
     
     # Set the input_image to be a weighted average of the content_image and a noise_image
     input_image = noise_image * noise_ratio + content_image * (1 - noise_ratio)
@@ -164,10 +172,15 @@ def generate_noise_image(content_image, noise_ratio = CONFIG.NOISE_RATIO):
     return input_image
 
 
-def reshape_and_normalize_image(image):
+def reshape_and_normalize_image(image,reshape = False):
     """
     Reshape and normalize the input image (content or style)
     """
+    if (image.shape[-1] == 4):
+        image = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
+
+    if (reshape == True):
+        image = cv2.resize(image, dsize=(CONFIG.IMAGE_WIDTH,CONFIG.IMAGE_HEIGHT), interpolation=cv2.INTER_CUBIC)
     
     # Reshape image to mach expected input of VGG16
     image = np.reshape(image, ((1,) + image.shape))
